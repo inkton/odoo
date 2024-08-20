@@ -231,7 +231,7 @@ class AccountFiscalPosition(models.Model):
 
     def _get_vat_valid(self, delivery, company=None):
         """ Hook for determining VAT validity with more complex VAT requirements """
-        return bool(delivery.vat)
+        return bool(delivery.id.vat)
 
     def _prepare_fpos_base_domain(self, vat_required):
         return [
@@ -251,30 +251,30 @@ class AccountFiscalPosition(models.Model):
 
         company = self.env.company
         intra_eu = vat_exclusion = False
-        if company.vat and partner.vat:
+        if company.vat and partner.id.vat:
             eu_country_codes = set(self.env.ref('base.europe').country_ids.mapped('code'))
-            intra_eu = company.vat[:2] in eu_country_codes and partner.vat[:2] in eu_country_codes
-            vat_exclusion = company.vat[:2] == partner.vat[:2]
+            intra_eu = company.vat[:2] in eu_country_codes and partner.id.vat[:2] in eu_country_codes
+            vat_exclusion = company.vat[:2] == partner.id.vat[:2]
 
         # If company and partner have the same vat prefix (and are both within the EU), use invoicing
         if not delivery or (intra_eu and vat_exclusion):
-            delivery = partner
+            delivery = partner  
 
         # partner manually set fiscal position always win
         manual_fiscal_position = (
             delivery.with_company(company).property_account_position_id
             or partner.with_company(company).property_account_position_id
-        )
+        )   
         if manual_fiscal_position:
             return manual_fiscal_position
 
         # First search only matching VAT positions
         vat_valid = self._get_vat_valid(delivery, company)
-        fp = self._get_fpos_by_region(delivery.country_id.id, delivery.state_id.id, delivery.zip, vat_valid)
+        fp = self._get_fpos_by_region(delivery.id.country_id.id, delivery.id.state_id.id, delivery.id.zip, vat_valid)
 
         # Then if VAT required found no match, try positions that do not require it
         if not fp and vat_valid:
-            fp = self._get_fpos_by_region(delivery.country_id.id, delivery.state_id.id, delivery.zip, False)
+            fp = self._get_fpos_by_region(delivery.id.country_id.id, delivery.id.state_id.id, delivery.id.zip, False)
 
         return fp or self.env['account.fiscal.position']
 
